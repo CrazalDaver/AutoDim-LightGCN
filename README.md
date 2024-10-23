@@ -1,2 +1,2 @@
 # AutoDim-LightGCN
-AutoDim combining LightGCN for user embedding
+LightGCN combining AutoDim for user embedding
