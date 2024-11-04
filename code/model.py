@@ -10,12 +10,14 @@ class LightGCN(nn.Module):
     def __init__(self,
                  config: dict,
                  dataset: Loader,
+                 use_AutoDim=True,
                  ):
         super(LightGCN, self).__init__()
         self.config = config  # parameters
         self.dataset = dataset
+        self.use_AutoDim = use_AutoDim
+
         self.__init_weight()  # load parameters
-        self.use_AutoDim = True
 
         # self.Embedding = AutoDimEmbedding if self.use_AutoDim else torch.nn.Embedding
 
@@ -31,7 +33,9 @@ class LightGCN(nn.Module):
         # self.user_embedding = torch.nn.Embedding(
         #     num_embeddings=self.num_users, embedding_dim=self.latent_dim)
 
-        self.user_embedding = AutoDimEmbedding(
+        embedding = AutoDimEmbedding if self.use_AutoDim else torch.nn.Embedding
+
+        self.user_embedding = embedding(
             num_embeddings=self.num_users, embedding_dim=self.latent_dim)
         self.item_embedding = torch.nn.Embedding(
             num_embeddings=self.num_items, embedding_dim=self.latent_dim)
@@ -65,7 +69,7 @@ class LightGCN(nn.Module):
         all_users, all_items = self.propagate()
         users_emb = all_users[users.long()]
         items_emb = all_items
-        rating = nn.Sigmoid(torch.matmul(users_emb, items_emb.t()))
+        rating = nn.Sigmoid()(torch.matmul(users_emb, items_emb.t()))
         return rating
 
     # fetch all embeddings for loss calculation
@@ -115,9 +119,18 @@ class LightGCN(nn.Module):
 # device = config['device']
 # dataset = Loader()
 # model = LightGCN(config, dataset).to(device)
+#
+# input_user = torch.tensor([1])
+# input_user = torch.tensor([1, 2, 3])
+
 # print(model.graph.shape)
 # users_emb = model.user_embedding.weight
 # items_emb = model.item_embedding.weight
 # all_emb = torch.cat([users_emb, items_emb])
 # print('users_emb', users_emb.shape)
 # print('items_emb', items_emb.shape)
+# print(model.getUsersRating(input_user))
+
+# print(
+#     torch.topk(model.getUsersRating(input_user), 20).indices
+# )

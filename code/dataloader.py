@@ -104,6 +104,7 @@ class Loader(Dataset):
         self.trainUniqueUsers = np.array(trainUniqueUsers)
         self.trainUser = np.array(trainUser)
         self.trainItem = np.array(trainItem)
+
         # test dataset
         testUniqueUsers, testItem, testUser = read_file(test_file)
         self.testDataSize = len(testItem)
@@ -122,8 +123,11 @@ class Loader(Dataset):
         # print('index length', (len(self.trainUser), len(self.trainItem)))
         # print('n', self.n_user)
         # print('m', self.m_item)
+
+        # train ui interaction adjacency matrix (sparse)
         self.UserItemNet = csr_matrix((np.ones(len(self.trainUser)), (self.trainUser, self.trainItem)),
                                       shape=(self.n_user, self.m_item))
+        # dense(?)
         self.users_D = np.array(self.UserItemNet.sum(axis=1)).squeeze()
         self.users_D[self.users_D == 0.] = 1
         self.items_D = np.array(self.UserItemNet.sum(axis=0)).squeeze()
@@ -131,15 +135,30 @@ class Loader(Dataset):
 
         # pre-calculate
         self.allPos = self.getUserPosItems(list(range(self.n_user)))
-        # self.__testDict = self.__build_test()
+        self.testDict = self.__build_test()
         print(f"{dataset_name} initialization complete.")
 
-    # fetch positive items
+    # fetch positive items for given training users
     def getUserPosItems(self, users):
         posItems = []
         for user in users:
             posItems.append(self.UserItemNet[user].nonzero()[1])
         return posItems  # posItems[user] = positive items of user
+
+    # fetch positive items for given test users
+    def __build_test(self):
+        """
+        return:
+            dict: {user: [items]}
+        """
+        test_data = {}
+        for i, item in enumerate(self.testItem):
+            user = self.testUser[i]
+            if test_data.get(user):
+                test_data[user].append(item)
+            else:
+                test_data[user] = [item]
+        return test_data
 
     def _convert_sp_mat_to_sp_tensor(self, X):
         coo = X.tocoo().astype(np.float32)
@@ -194,9 +213,13 @@ class Loader(Dataset):
             # print("don't split the matrix")
         return self.Graph
 
+
 # sample_dataset = Loader()
+
 # print(sample_dataset.device)
 # print(sample_dataset.getSparseGraph())
 # print(type(sample_dataset.Graph))
 # print(type(sample_dataset.getSparseGraph()))
-# print((sample_dataset().allPos)[0])
+# print(len(sample_dataset.allPos))  # 1000 (max read, user_num)
+# print(sample_dataset.allPos[1])
+# print(sample_dataset.testDict[1])

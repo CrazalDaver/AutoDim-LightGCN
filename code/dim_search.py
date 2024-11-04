@@ -63,7 +63,7 @@ class AutoDimEmbedding(nn.Module):
             branch_output.append(br.bn(br.transform(emb_weight)))
             branch_alpha.append(user_alpha)
         all_emb = torch.stack(branch_output) * F.softmax(torch.stack(branch_alpha), dim=0)
-        return all_emb.sum(dim=0)  # # shape:(emb_num, emb_dim)
+        return all_emb.sum(dim=0)  # shape:(emb_num, emb_dim)
 
     def forward(self, x):   # x shape: [batch_size]
         # call getEmbedding and look up embeddings
