@@ -15,5 +15,5 @@ config['decay'] = 1e-4
 # config['pretrain'] = False
 # config['A_split'] = False
 # config['bigdata'] = False
-config['device'] = 'cuda' if torch.cuda.is_available() else 'cpu'
+config['device'] = 'cuda' #if torch.cuda.is_available() else 'cpu'
 config['top_k'] = [1, 5, 10, 20]

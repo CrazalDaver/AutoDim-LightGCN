@@ -11,12 +11,13 @@ class LightGCN(nn.Module):
                  config: dict,
                  dataset: Loader,
                  use_AutoDim=True,
+                 learned_dims = None
                  ):
         super(LightGCN, self).__init__()
         self.config = config  # parameters
         self.dataset = dataset
         self.use_AutoDim = use_AutoDim
-
+        self.learned_dims = learned_dims
         self.__init_weight()  # load parameters
 
         # self.Embedding = AutoDimEmbedding if self.use_AutoDim else torch.nn.Embedding
@@ -33,10 +34,10 @@ class LightGCN(nn.Module):
         # self.user_embedding = torch.nn.Embedding(
         #     num_embeddings=self.num_users, embedding_dim=self.latent_dim)
 
-        embedding = AutoDimEmbedding if self.use_AutoDim else torch.nn.Embedding
+        # embedding = AutoDimEmbedding if self.use_AutoDim else torch.nn.Embedding
 
-        self.user_embedding = embedding(
-            num_embeddings=self.num_users, embedding_dim=self.latent_dim)
+        self.user_embedding = AutoDimEmbedding(
+            num_embeddings=self.num_users, embedding_dim=self.latent_dim, learned_dims=self.learned_dims)
         self.item_embedding = torch.nn.Embedding(
             num_embeddings=self.num_items, embedding_dim=self.latent_dim)
 

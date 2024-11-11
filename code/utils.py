@@ -65,7 +65,7 @@ def UniformSample(dataset):
     allPos = dataset.allPos  # user-positive items for all users
     S = []
 
-    for i, user in enumerate(users):
+    for i, user in enumerate(users):  # --> array([u, +, -])
         posForUser = allPos[user]
         if len(posForUser) == 0:  # in case=0
             continue
@@ -167,7 +167,8 @@ def BPRTrain(dataset, model, loss_type, epoch=1, neg_k=1):
 
     average_loss = average_loss / total_batch
     epoch_time = time() - start_time
-    return f"Training loss: {average_loss:.3f} - epoch_time: {epoch_time}"
+    return average_loss, epoch_time
+    # return f"Training loss: {average_loss:.3f} - epoch_time: {epoch_time}"
 
 
 def getLabel(test_data, pred_data):
@@ -247,17 +248,72 @@ def Test(dataset, model, loss_type, config=config):
                'recall': np.zeros(len(top_k)),
                'ndcg': np.zeros(len(top_k))}
 
-    users = list(testDict.keys())
+    model.eval()
 
-    # update alpha values
+    with torch.no_grad():
+        users = list(testDict.keys())
+        # update alpha values
+        freeze(model)
+        users_list = []
+        rating_list = []
+        groundTrue_list = []
+        for batch_users in minibatch(users, batch_size=batch_size):
+            allPos = dataset.getUserPosItems(batch_users)
+            groundTruth = [testDict[u] for u in batch_users]
+            batch_users_gpu = torch.Tensor(batch_users).long()
+            batch_users_gpu = batch_users_gpu.to(device)
+            rating = model.getUsersRating(batch_users_gpu)
+            # exclude data in training set
+            exclude_index = []
+            exclude_items = []
+            for range_i, items in enumerate(allPos):
+                exclude_index.extend([range_i] * len(items))
+                exclude_items.extend(items)
+            ratings[exclude_index, exclude_items] = -1024
+            # _, rating_K = torch.topk(ratings, k=max(top_k))
+            rating_K = torch.topk(ratings, max(top_k)).indices  # shape: (user_num, top_k_max)
+            ratings = ratings.cpu().numpy()
+
+            users_list.append(batch_users)
+            rating_list.append(rating_K.cpu())
+            groundTrue_list.append(groundTruth)
+
+        pre_results = []
+        X = zip(rating_list, groundTrue_list)
+        for x in X:
+            pre_results.append(test_one_batch(x))
+        for result in pre_results:
+            results['recall'] += result['recall']
+            results['precision'] += result['precision']
+            results['ndcg'] += result['ndcg']
+        results['recall'] /= float(len(users))
+        results['precision'] /= float(len(users))
+        results['ndcg'] /= float(len(users))
+        # print(results)
+        return results
+
+
+def dimSearchTrain(dataset, model, loss_train, loss_val, config=config):
+    """
+    auto dimension search stage for alpha update,
+    algorithm 1 in https://dl.acm.org/doi/10.1145/3442381.3450124
+    :return: loss info (like BPRTrain)
+    """
+    batch_size = config['batch_size']
+    test_batch_size = config['test_batch_size']
+    model: model.LightGCN
+    testDict: dict = dataset.testDict  # dict:{user:positive items (for all users)}
+    bpr: BPRLoss = loss_train
+    neglog: NegLogLikelihoodLoss = loss_val
+
+    device = config['device']
     model.train()
-    freeze(model)
-    users_list = []
-    rating_list = []
-    groundTrue_list = []
-    losses = []
 
-    for batch_users in minibatch(users, batch_size=batch_size):
+    # update alpha
+    freeze(model)
+    users = list(testDict.keys())
+    negloglosses = []
+    for batch_users in minibatch(users, batch_size=test_batch_size):
         allPos = dataset.getUserPosItems(batch_users)  # (user: positive items) pairs for training set
         groundTruth = [testDict[u] for u in batch_users]  # (user: positive items) pairs for test set
         batch_users_gpu = (torch.Tensor(batch_users).long()).to(device)  # users in batch
@@ -267,36 +323,18 @@ def Test(dataset, model, loss_type, config=config):
             idxes = [idx for idx in groundTruth[i] if idx < dataset.m_item]
             line = line.clone()
             line[idxes] = 1
-        loss = neglog.stageOne(ratings, gt)
-        losses.append(loss)
+        neglogloss = neglog.stageOne(ratings, gt)
+        negloglosses.append(neglogloss)
+    neglog_loss = np.mean(negloglosses)
 
-        # exclude data in training set
-        exclude_index = []
-        exclude_items = []
-        for range_i, items in enumerate(allPos):
-            exclude_index.extend([range_i] * len(items))
-            exclude_items.extend(items)
-        ratings[exclude_index, exclude_items] = -1024
-        # _, rating_K = torch.topk(ratings, k=max(top_k))
-        rating_K = torch.topk(ratings, max(top_k)).indices  # shape: (user_num, top_k_max)
-        ratings = ratings.cpu().numpy()
+    # update recsys parameter W
+    unfreeze(model)
+    bpr_loss, epoch_time = BPRTrain(dataset, model, bpr)
+    return neglog_loss, bpr_loss
 
-        users_list.append(batch_users)
-        rating_list.append(rating_K.cpu())
-        groundTrue_list.append(groundTruth)
 
-    pre_results = []
-    X = zip(rating_list, groundTrue_list)
-    for x in X:
-        pre_results.append(test_one_batch(x))
-    for result in pre_results:
-        results['recall'] += result['recall']
-        results['precision'] += result['precision']
-        results['ndcg'] += result['ndcg']
-    results['recall'] /= float(len(users))
-    results['precision'] /= float(len(users))
-    results['ndcg'] /= float(len(users))
+# if __name__ == '__main__':
+#
+#     print('0')
 
-    results['neglog_loss'] = np.mean(losses)
 
-    return results

@@ -214,12 +214,15 @@ class Loader(Dataset):
         return self.Graph
 
 
-# sample_dataset = Loader()
+if __name__ == '__main__':
+    sample_dataset = Loader()
 
-# print(sample_dataset.device)
-# print(sample_dataset.getSparseGraph())
-# print(type(sample_dataset.Graph))
-# print(type(sample_dataset.getSparseGraph()))
-# print(len(sample_dataset.allPos))  # 1000 (max read, user_num)
-# print(sample_dataset.allPos[1])
-# print(sample_dataset.testDict[1])
+    # print(sample_dataset.device)
+    # print(sample_dataset.getSparseGraph())
+    # print(type(sample_dataset.Graph))
+    # print(type(sample_dataset.getSparseGraph()))
+    # print(len(sample_dataset.allPos))  # 1000 (max read, user_num)
+    # print(sample_dataset.allPos[1])
+    print(sample_dataset.allPos[1])
+    print(sample_dataset.testDict[1])
+
