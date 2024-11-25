@@ -262,7 +262,7 @@ def Test(dataset, model, loss_type, config=config):
             groundTruth = [testDict[u] for u in batch_users]
             batch_users_gpu = torch.Tensor(batch_users).long()
             batch_users_gpu = batch_users_gpu.to(device)
-            rating = model.getUsersRating(batch_users_gpu)
+            ratings = model.getUsersRating(batch_users_gpu)
             # exclude data in training set
             exclude_index = []
             exclude_items = []
